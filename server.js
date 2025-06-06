@@ -23,13 +23,19 @@ io.on('connection', (socket) => {
 
 app.get('/list-folder', (req, res) => {
     const folderPath = req.query.path;
-    console.log('LIST:', folderPath);  // log đường dẫn đang đọc
     fs.readdir(folderPath, { withFileTypes: true }, (err, files) => {
         if (err) {
-            console.log('ERR:', err);
-            return res.status(400).json({ error: 'Không đọc được thư mục' });
+            // Nếu lỗi là không tồn tại (ENOENT)
+            if (err.code === "ENOENT") {
+                return res.status(404).json({ error: "Không tồn tại thư mục" });
+            }
+            // Nếu lỗi là không đủ quyền (EACCES)
+            if (err.code === "EACCES" || err.code === "EPERM") {
+                return res.status(403).json({ error: "Không có quyền truy cập thư mục" });
+            }
+            // Các lỗi khác
+            return res.status(400).json({ error: "Không đọc được thư mục" });
         }
-    
         const result = files.map(f => ({
             name: f.name,
             isDir: f.isDirectory()
