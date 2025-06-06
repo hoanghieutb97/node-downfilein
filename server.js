@@ -47,7 +47,6 @@ app.get('/list-folder', (req, res) => {
 
 app.post('/download-zip-tree', (req, res) => {
     const { selected, rootPath } = req.body;
-    // Lấy tên zip dựa theo thư mục gốc (rootPath)
     const zipName = `${rootPath ? rootPath.split(/[/\\]/).filter(Boolean).pop() : 'selected_files'}.zip`;
 
     res.set({
@@ -57,17 +56,24 @@ app.post('/download-zip-tree', (req, res) => {
 
     const archiverLib = require('archiver');
     const archive = archiverLib('zip');
+    archive.on('error', err => {
+        console.log('ARCHIVE ERROR', err);
+        try { res.status(500).end(); } catch (e) { }
+    });
+    res.on('close', () => {
+        console.log('RESPONSE CLOSE - client disconnect or download finished');
+    });
     archive.pipe(res);
 
     selected.forEach(fullPath => {
-        // Tính đường dẫn TƯƠNG ĐỐI để giữ cấu trúc thư mục
         let relative = fullPath.replace(rootPath, "").replace(/^[/\\]+/, "");
         if (fs.existsSync(fullPath) && fs.lstatSync(fullPath).isDirectory()) {
-            archive.directory(fullPath, relative); // Giữ nguyên folder structure
+            archive.directory(fullPath, relative);
         } else if (fs.existsSync(fullPath)) {
-            archive.file(fullPath, { name: relative }); // Giữ file nằm đúng folder
+            archive.file(fullPath, { name: relative });
         }
     });
+
     archive.finalize();
 });
 
